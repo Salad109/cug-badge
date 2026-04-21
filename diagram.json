@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "author": "CUG Badge",
+  "editor": "wokwi",
+"parts": [
+    { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 350, "left": 50, "rotate": 90, "attrs": {} },
+    { "type": "wokwi-ili9341", "id": "tft", "top": 0, "left": 0, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp:GND.1", "tft:GND", "black", [ "v0" ] ],
+    [ "esp:3V3.1", "tft:VCC", "red", [ "v0" ] ],
+    [ "esp:3V3.2", "tft:LED", "red", [ "v0" ] ],
+    [ "esp:4", "tft:SCK", "orange", [ "v0" ] ],
+    [ "esp:5", "tft:MISO", "purple", [ "v0" ] ],
+    [ "esp:6", "tft:MOSI", "blue", [ "v0" ] ],
+    [ "esp:7", "tft:CS", "green", [ "v0" ] ],
+    [ "esp:2", "tft:D/C", "yellow", [ "v0" ] ]
+  ]
+}
