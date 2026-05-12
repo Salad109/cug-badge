@@ -3,8 +3,8 @@
   "author": "CUG Badge",
   "editor": "wokwi",
 "parts": [
-    { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 350, "left": 50, "rotate": 90, "attrs": {} },
-    { "type": "wokwi-ili9341", "id": "tft", "top": 0, "left": 0, "attrs": {} }
+    { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 350, "left": -350, "rotate": 90, "attrs": {} },
+    { "type": "wokwi-ili9341", "id": "tft", "top": 0, "left": 0, "rotate": 90, "attrs": {} }
   ],
   "connections": [
     [ "esp:GND.1", "tft:GND", "black", [ "v0" ] ],
