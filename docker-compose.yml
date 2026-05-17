@@ -1,0 +1,44 @@
+services:
+  app:
+    build:
+      context: ./serwer
+      dockerfile: Dockerfile
+    container_name: spring-app-pz
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    container_name: postgres-db-pz
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  frontend:
+    image: nginx:alpine
+    container_name: frontend-reg-pz
+    ports:
+      - "6769:80"
+    volumes:
+      - ./frontend_register:/usr/share/nginx/html:ro
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:
