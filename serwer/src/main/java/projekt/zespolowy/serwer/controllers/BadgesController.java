@@ -13,7 +13,6 @@ import projekt.zespolowy.serwer.model.UserRegistrationRequest;
 import projekt.zespolowy.serwer.services.UserService;
 
 @RestController
-@CrossOrigin(origins = "*")
 public class BadgesController implements BadgesApi{
     private final UserService userService;
 

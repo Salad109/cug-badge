@@ -17,6 +17,47 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/User'
+    post:
+      tags:
+        - Users
+        - Admin
+      summary: Manually creates a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: User created
+        '409':
+          description: MAC address already occupied
+
+  /users/{id}:
+    put:
+      tags:
+        - Users
+        - Admin
+      summary: Updates an existing user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User updated
+        '404':
+          description: User not found
 
   /badges/{mac_address}/user:
     get:
@@ -90,8 +131,113 @@ paths:
         '200':
           description: Succesfully unlinked all badges
 
+  /sectors:
+    get:
+      tags:
+        - Sectors
+        - Admin
+      summary: Retrieves a list of sectors (LoRa gateways)
+      responses:
+        '200':
+          description: List of sectors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sector'
+    post:
+      tags:
+        - Sectors
+        - Admin
+      summary: Adds a new sector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectorRequest'
+      responses:
+        '201':
+          description: Sector created
+
+  /sectors/{id}:
+    delete:
+      tags:
+        - Sectors
+        - Admin
+      summary: Deletes a sector
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Sector deleted
+
+  /admin/messages:
+    post:
+      tags:
+        - Messaging
+        - Admin
+      summary: Sends a message to badges
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+      responses:
+        '202':
+          description: Message accepted for delivery
+
 components:
   schemas:
+    Sector:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        gatewayUrl:
+          type: string
+
+    SectorRequest:
+      type: object
+      required:
+        - name
+        - gatewayUrl
+      properties:
+        name:
+          type: string
+        gatewayUrl:
+          type: string
+
+    MessageRequest:
+      type: object
+      required:
+        - targetType
+        - content
+      properties:
+        targetType:
+          type: string
+          enum: [BROADCAST, SECTOR, MAC]
+        targetId:
+          type: string
+          description: Sector ID or MAC address (ignored for BROADCAST)
+        content:
+          type: string
+          maxLength: 150
+        category:
+          type: string
+          enum: [INFO, WARNING, SPONSOR, ALERT]
+          default: INFO
+
     User:
       type: object
       properties:
@@ -111,8 +257,6 @@ components:
         role:
           type: string
           enum: [USER, VIP, SPEAKER, ADMIN, STAFF]
-        accessGroup:
-          type: integer
 
     UserRegistrationRequest:
       type: object

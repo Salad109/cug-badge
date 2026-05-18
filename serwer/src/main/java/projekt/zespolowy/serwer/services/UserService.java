@@ -21,14 +21,8 @@ public class UserService {
 
     public List<User> getAll() {
         return userRepository.findAll().stream()
-                .map(entity -> {
-                    User dto = new User();
-                    dto.setId(entity.getId());
-                    dto.setName(entity.getName());
-                    dto.setSurname(entity.getSurname());
-                    dto.setNickname(entity.getNickname());
-                    return dto;
-                }).collect(Collectors.toList());
+                .map(this::mapEntityToDto)
+                .collect(Collectors.toList());
     }
 
     public int addUser(String macAddress, UserRegistrationRequest user) {
@@ -77,6 +71,38 @@ public class UserService {
         userRepository.deleteAll();
     }
 
+    public int manuallyAddUser(User user) {
+        if (user.getMacAddress() != null && userRepository.existsByMacAddress(user.getMacAddress())) {
+            return 409;
+        }
+        UserEntity entity = new UserEntity();
+        updateEntityFromDto(entity, user);
+        userRepository.save(entity);
+        return 201;
+    }
+
+    public boolean updateUser(Long id, User user) {
+        Optional<UserEntity> optional = userRepository.findById(id);
+        if (optional.isPresent()) {
+            UserEntity entity = optional.get();
+            updateEntityFromDto(entity, user);
+            userRepository.save(entity);
+            return true;
+        }
+        return false;
+    }
+
+    private void updateEntityFromDto(UserEntity entity, User dto) {
+        entity.setName(dto.getName());
+        entity.setSurname(dto.getSurname());
+        entity.setNickname(dto.getNickname());
+        entity.seteMail(dto.geteMail());
+        entity.setMacAddress(dto.getMacAddress());
+        if (dto.getRole() != null) {
+            entity.setRole(UserEntity.RoleEnum.valueOf(dto.getRole().name()));
+        }
+    }
+
     private User mapEntityToDto(UserEntity entity) {
         User dto = new User();
         dto.setId(entity.getId());
@@ -85,7 +111,6 @@ public class UserService {
         dto.setNickname(entity.getNickname());
         dto.seteMail(entity.geteMail());
         dto.setMacAddress(entity.getMacAddress());
-        dto.setAccessGroup(entity.getAccessGroup());
 
         if (entity.getRole() != null) {
             dto.setRole(User.RoleEnum.valueOf(entity.getRole().name()));
