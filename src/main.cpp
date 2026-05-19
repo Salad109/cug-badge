@@ -1,402 +1,244 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WebServer.h>
-#include <WebSocketsServer.h>
-#include <Preferences.h>
+#include <SPI.h>
+#include <LoRa.h>
+#include <ESPAsyncWebServer.h>
 #include "secrets.h"
 
-const char* ssid = WIFI_SSID;
-const char* password = WIFI_PASSWORD;
+// SX1276 wiring — matches the badge BOM pinout (shared SPI bus).
+// Change if the AP board is wired differently.
+constexpr int  LORA_SCK  = 4;
+constexpr int  LORA_MISO = 6;
+constexpr int  LORA_MOSI = 7;
+constexpr int  LORA_CS   = 3;
+constexpr int  LORA_RST  = -1;   // soft reset via SPI
+constexpr int  LORA_DIO0 = 8;    // shares the C3 Super Mini onboard LED — input only, fine
+constexpr long LORA_FREQ = 868E6;
 
-const int LED = 8;
-const int PWM_CHANNEL = 0;
-const int PWM_FREQ = 5000;
-const int PWM_BITS = 8;
+constexpr size_t MAX_LORA_PAYLOAD = 240;
 
-const size_t MAX_PRESETS = 8;
-const size_t MAX_NAME_LEN = 13;
-const size_t MAX_PATTERN_LEN = 3999;
-const uint16_t DEFAULT_FRAME_MS = 100;
-
-struct Preset {
-  String name;
-  String pattern;
+struct RxPacket {
+  uint32_t at_ms;
+  int16_t  rssi;
+  float    snr;
+  uint8_t  len;
+  char     data[MAX_LORA_PAYLOAD];
 };
 
-Preset presets[MAX_PRESETS];
-size_t presetCount = 0;
+QueueHandle_t rxQueue;
 
-String currentName;
-String currentPattern;
-uint16_t frameMs = DEFAULT_FRAME_MS;
-uint32_t frameIdx = 0;
-uint32_t lastFrameAt = 0;
+constexpr size_t RX_LOG_SIZE = 16;
+RxPacket rxLog[RX_LOG_SIZE];
+size_t   rxLogHead  = 0;
+size_t   rxLogCount = 0;
 
-WebServer server(80);
-WebSocketsServer ws(81);
-Preferences prefs;
+bool     loraReady = false;
+uint32_t rxTotal   = 0;
+uint32_t txTotal   = 0;
 
-bool isHex(const String& s) {
-  if (s.length() == 0 || s.length() > MAX_PATTERN_LEN) return false;
-  for (size_t i = 0; i < s.length(); i++) {
-    char c = s[i];
-    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false;
+AsyncWebServer server(80);
+
+void onLoRaReceive(int packetSize) {
+  if (packetSize <= 0 || packetSize > (int)MAX_LORA_PAYLOAD) return;
+  RxPacket p{};
+  p.at_ms = millis();
+  p.rssi  = LoRa.packetRssi();
+  p.snr   = LoRa.packetSnr();
+  p.len   = packetSize;
+  for (int i = 0; i < packetSize; i++) p.data[i] = (char)LoRa.read();
+  xQueueSend(rxQueue, &p, 0);
+}
+
+// Extracts a JSON string value: returns the substring between the quotes
+// after `"key":"`. Returns empty String if not found. No escape handling —
+// fine for the backend's MessageRequest shape (ASCII content, no quotes inside).
+String jsonString(const String& body, const char* key) {
+  String needle = String("\"") + key + "\"";
+  int k = body.indexOf(needle);
+  if (k < 0) return String();
+  int colon = body.indexOf(':', k);
+  if (colon < 0) return String();
+  int q1 = body.indexOf('"', colon);
+  if (q1 < 0) return String();
+  int q2 = body.indexOf('"', q1 + 1);
+  if (q2 < 0) return String();
+  return body.substring(q1 + 1, q2);
+}
+
+// Accumulates POST body chunks into a heap-allocated String stashed on the
+// request. The main handler reads it back and deletes it.
+void bodyAccumulator(AsyncWebServerRequest* req, uint8_t* data, size_t len,
+                     size_t index, size_t total) {
+  if (index == 0) {
+    auto* s = new String();
+    s->reserve(total);
+    req->_tempObject = s;
   }
-  return true;
+  auto* s = static_cast<String*>(req->_tempObject);
+  if (!s) return;
+  for (size_t i = 0; i < len; i++) (*s) += (char)data[i];
 }
 
-bool isValidName(const String& s) {
-  if (s.length() == 0 || s.length() > MAX_NAME_LEN) return false;
-  for (size_t i = 0; i < s.length(); i++) {
-    char c = s[i];
-    if (!(isalnum(c) || c == '_' || c == '-')) return false;
-  }
-  return true;
-}
-
-int findPreset(const String& name) {
-  for (size_t i = 0; i < presetCount; i++) {
-    if (presets[i].name == name) return (int)i;
-  }
-  return -1;
-}
-
-uint8_t hexCharToValue(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
-  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
-  return 0;
-}
-
-void writeLed(uint8_t level0to15) {
-  uint8_t duty = level0to15 * 17;       // 0..255
-  ledcWrite(PWM_CHANNEL, 255 - duty);   // active-low
-}
-
-void ledOff() {
-  ledcWrite(PWM_CHANNEL, 255);
-}
-
-void persistNames() {
-  String csv;
-  for (size_t i = 0; i < presetCount; i++) {
-    if (i) csv += ",";
-    csv += presets[i].name;
-  }
-  prefs.putString("names", csv);
-}
-
-void persistPreset(const Preset& p) {
-  prefs.putString((String("p_") + p.name).c_str(), p.pattern);
-}
-
-void erasePresetKey(const String& name) {
-  prefs.remove((String("p_") + name).c_str());
-}
-
-void loadAll() {
-  presetCount = 0;
-  String csv = prefs.getString("names", "");
-  while (csv.length() > 0 && presetCount < MAX_PRESETS) {
-    int comma = csv.indexOf(',');
-    String n = (comma < 0) ? csv : csv.substring(0, comma);
-    csv = (comma < 0) ? "" : csv.substring(comma + 1);
-    if (!isValidName(n)) continue;
-    String pat = prefs.getString((String("p_") + n).c_str(), "");
-    if (!isHex(pat)) continue;
-    presets[presetCount].name = n;
-    presets[presetCount].pattern = pat;
-    presetCount++;
-  }
-  frameMs = prefs.getUShort("frame_ms", DEFAULT_FRAME_MS);
-  if (frameMs == 0) frameMs = DEFAULT_FRAME_MS;
-  String cur = prefs.getString("current", "");
-  int idx = findPreset(cur);
-  if (idx >= 0) {
-    currentName = presets[idx].name;
-    currentPattern = presets[idx].pattern;
-  }
-}
-
-String serializeState() {
-  String s = "STATE\n";
-  s += "current=" + currentName + "\n";
-  s += "pattern=" + currentPattern + "\n";
-  s += "speed=" + String(frameMs) + "\n";
-  s += "presets=";
-  for (size_t i = 0; i < presetCount; i++) {
-    if (i) s += ",";
-    s += presets[i].name + ":" + presets[i].pattern;
-  }
-  return s;
-}
-
-void broadcastState() {
-  String s = serializeState();
-  ws.broadcastTXT(s);
-}
-
-void setCurrent(const String& name) {
-  int idx = findPreset(name);
-  if (idx < 0) return;
-  currentName = presets[idx].name;
-  currentPattern = presets[idx].pattern;
-  frameIdx = 0;
-  lastFrameAt = millis();
-  prefs.putString("current", currentName);
-}
-
-void stopPlaying() {
-  currentName = "";
-  currentPattern = "";
-  frameIdx = 0;
-  ledOff();
-  prefs.putString("current", "");
-}
-
-bool savePreset(const String& name, const String& pat) {
-  if (!isValidName(name) || !isHex(pat)) return false;
-  int idx = findPreset(name);
-  if (idx >= 0) {
-    presets[idx].pattern = pat;
-  } else {
-    if (presetCount >= MAX_PRESETS) return false;
-    presets[presetCount].name = name;
-    presets[presetCount].pattern = pat;
-    presetCount++;
-    persistNames();
-  }
-  persistPreset(presets[findPreset(name)]);
-  setCurrent(name);
-  return true;
-}
-
-bool deletePreset(const String& name) {
-  int idx = findPreset(name);
-  if (idx < 0) return false;
-  erasePresetKey(name);
-  for (size_t i = idx; i + 1 < presetCount; i++) presets[i] = presets[i + 1];
-  presetCount--;
-  presets[presetCount] = Preset();
-  persistNames();
-  if (currentName == name) stopPlaying();
-  return true;
-}
-
-void setSpeed(uint16_t ms) {
-  if (ms == 0) ms = 1;
-  frameMs = ms;
-  prefs.putUShort("frame_ms", frameMs);
-}
-
-void handleRoot() {
-  server.send(200, "text/html",
-    "<!DOCTYPE html><html><head>"
-    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-    "<title>LED Pattern Player</title>"
-    "<style>"
-    "body{font-family:sans-serif;margin:0 auto;padding:1rem;background:#1a1a1a;color:#eee;max-width:600px}"
-    "h1{font-size:1.4rem}h2{font-size:1.1rem;margin-top:1.5rem;border-bottom:1px solid #333;padding-bottom:.3rem}"
-    "section{margin-bottom:1rem}"
-    ".now{padding:.8rem;background:#222;border-radius:8px}"
-    ".now .name{font-weight:bold;font-size:1.2rem}"
-    ".now .pat{font-family:monospace;color:#8cf;word-break:break-all}"
-    ".muted{color:#888}"
-    "ul{list-style:none;padding:0}"
-    "li{display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #2a2a2a}"
-    "li .pname{flex:1;font-weight:bold}"
-    "li .ppat{font-family:monospace;color:#8cf;font-size:.85rem;flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
-    "input,button{font-size:1rem;padding:.5rem;border-radius:6px;border:1px solid #444;background:#222;color:#eee}"
-    "input{width:100%;box-sizing:border-box;margin:.2rem 0}"
-    "button{cursor:pointer;background:#444}"
-    "button.primary{background:#4caf50;border-color:#4caf50}"
-    "button.danger{background:#a33;border-color:#a33}"
-    ".row{display:flex;gap:.5rem;align-items:center}"
-    ".row label{flex:0 0 auto}"
-    "</style></head><body>"
-
-    "<h1>LED Pattern Player</h1>"
-
-    "<h2>Now playing</h2>"
-    "<section class='now'>"
-    "<div class='name' id='curName'>&mdash;</div>"
-    "<div class='pat' id='curPat'></div>"
-    "<button class='danger' onclick='send(\"stop\")' style='margin-top:.5rem'>Stop</button>"
-    "</section>"
-
-    "<h2>Speed</h2>"
-    "<section class='row'>"
-    "<label for='speed'>ms/frame:</label>"
-    "<input type='number' id='speed' min='1' style='width:100px' onchange='send(\"speed \"+this.value)'>"
-    "</section>"
-
-    "<h2>Saved presets</h2>"
-    "<ul id='list'></ul>"
-
-    "<h2>New / overwrite preset</h2>"
-    "<section>"
-    "<input id='newName' placeholder='name (a-z 0-9 _ -, max 13)' maxlength='13'>"
-    "<input id='newPat' placeholder='pattern: hex chars 0-F, e.g. 01234567890ABCDEFEDCBA9876543210' maxlength='3999'>"
-    "<button class='primary' onclick='savePreset()'>Save & play</button>"
-    "<div class='muted' style='margin-top:.5rem;font-size:.85rem'>"
-    "0 = LED off, F = full bright. Pattern loops, one char per frame."
-    "</div>"
-    "</section>"
-
-    "<script>"
-    "let ws;"
-    "function connect(){"
-    "  ws=new WebSocket('ws://'+location.hostname+':81');"
-    "  ws.onmessage=e=>{if(e.data.startsWith('ERROR'))alert(e.data.split('\\n')[1]||'error');else render(e.data);};"
-    "  ws.onclose=()=>setTimeout(connect,1000);"
-    "}"
-    "function send(m){if(ws&&ws.readyState===1)ws.send(m);}"
-    "function savePreset(){"
-    "  const n=document.getElementById('newName').value.trim();"
-    "  const p=document.getElementById('newPat').value.trim();"
-    "  if(!n||!p){alert('name and pattern required');return;}"
-    "  send('save '+n+'|'+p);"
-    "  document.getElementById('newName').value='';"
-    "  document.getElementById('newPat').value='';"
-    "}"
-    "function parseState(txt){"
-    "  const o={presets:[]};"
-    "  txt.split('\\n').forEach(line=>{"
-    "    const i=line.indexOf('=');if(i<0)return;"
-    "    const k=line.slice(0,i),v=line.slice(i+1);"
-    "    if(k==='presets'){"
-    "      o.presets=v?v.split(',').map(s=>{const j=s.indexOf(':');return{name:s.slice(0,j),pattern:s.slice(j+1)};}):[];"
-    "    } else o[k]=v;"
-    "  });"
-    "  return o;"
-    "}"
-    "function render(txt){"
-    "  if(!txt.startsWith('STATE'))return;"
-    "  const s=parseState(txt);"
-    "  document.getElementById('curName').textContent=s.current||'(stopped)';"
-    "  document.getElementById('curPat').textContent=s.pattern||'';"
-    "  const sp=document.getElementById('speed');"
-    "  if(document.activeElement!==sp)sp.value=s.speed;"
-    "  const ul=document.getElementById('list');"
-    "  ul.innerHTML='';"
-    "  if(s.presets.length===0){ul.innerHTML='<li class=\"muted\">no presets yet</li>';return;}"
-    "  s.presets.forEach(p=>{"
-    "    const li=document.createElement('li');"
-    "    li.innerHTML='<span class=\"pname\"></span><span class=\"ppat\"></span>"
-    "<button class=\"primary\">Play</button><button class=\"danger\">Del</button>';"
-    "    li.querySelector('.pname').textContent=p.name;"
-    "    li.querySelector('.ppat').textContent=p.pattern;"
-    "    li.querySelectorAll('button')[0].onclick=()=>send('play '+p.name);"
-    "    li.querySelectorAll('button')[1].onclick=()=>{if(confirm('delete '+p.name+'?'))send('delete '+p.name);};"
-    "    ul.appendChild(li);"
-    "  });"
-    "}"
-    "connect();"
-    "</script>"
-    "</body></html>"
-  );
-}
-
-void sendError(uint8_t client, const String& msg) {
-  Serial.println("ws error: " + msg);
-  String err = "ERROR\n" + msg;
-  ws.sendTXT(client, err);
-}
-
-void onWebSocketEvent(uint8_t client, WStype_t type, uint8_t* payload, size_t length) {
-  if (type == WStype_CONNECTED) {
-    String s = serializeState();
-    ws.sendTXT(client, s);
-    return;
-  }
-  if (type != WStype_TEXT) return;
-
-  String msg = String((char*)payload);
-  Serial.println("ws: " + msg);
-
-  if (msg == "stop") {
-    stopPlaying();
-  } else if (msg.startsWith("play ")) {
-    String name = msg.substring(5);
-    if (findPreset(name) < 0) {
-      sendError(client, "preset not found: " + name);
-      return;
-    }
-    setCurrent(name);
-  } else if (msg.startsWith("delete ")) {
-    String name = msg.substring(7);
-    if (!deletePreset(name)) {
-      sendError(client, "preset not found: " + name);
-      return;
-    }
-  } else if (msg.startsWith("speed ")) {
-    setSpeed((uint16_t)msg.substring(6).toInt());
-  } else if (msg.startsWith("save ")) {
-    String rest = msg.substring(5);
-    int bar = rest.indexOf('|');
-    if (bar <= 0) {
-      sendError(client, "malformed save command");
-      return;
-    }
-    String name = rest.substring(0, bar);
-    String pat = rest.substring(bar + 1);
-    if (!isValidName(name)) {
-      sendError(client, "invalid name '" + name + "': use only letters, digits, _ or -, max 12 chars");
-      return;
-    }
-    if (!isHex(pat)) {
-      sendError(client, "invalid pattern '" + pat + "': use only hex chars 0-9 A-F, max 64 chars");
-      return;
-    }
-    if (!savePreset(name, pat)) {
-      sendError(client, "save failed: preset limit reached (" + String(MAX_PRESETS) + " max)");
-      return;
-    }
-  } else {
-    return;
-  }
-  broadcastState();
+String takeBody(AsyncWebServerRequest* req) {
+  auto* s = static_cast<String*>(req->_tempObject);
+  String out = s ? *s : String();
+  delete s;
+  req->_tempObject = nullptr;
+  return out;
 }
 
 void setup() {
   Serial.begin(115200);
+  delay(200);
+  Serial.println("\n=== CUG Badge AP ===");
 
-  ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_BITS);
-  ledcAttachPin(LED, PWM_CHANNEL);
-  ledOff();
+  rxQueue = xQueueCreate(8, sizeof(RxPacket));
 
-  prefs.begin("led", false);
-  loadAll();
-
-  WiFi.begin(ssid, password);
+  WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
-  Serial.print("Connecting");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.printf("wifi: connecting to %s", WIFI_SSID);
+  for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) {
+    delay(250);
     Serial.print(".");
   }
-  Serial.println("\nIP: " + WiFi.localIP().toString());
+  Serial.println();
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("wifi: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("mac:  %s\n", WiFi.macAddress().c_str());
+    Serial.printf("register this AP as a sector with gatewayUrl=http://%s/downlink\n",
+                  WiFi.localIP().toString().c_str());
+  } else {
+    Serial.println("wifi: not connected (will keep trying in background)");
+  }
 
-  server.on("/", handleRoot);
+  SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI);
+  LoRa.setPins(LORA_CS, LORA_RST, LORA_DIO0);
+  if (LoRa.begin(LORA_FREQ)) {
+    LoRa.setSpreadingFactor(7);
+    LoRa.setSignalBandwidth(125E3);
+    LoRa.setCodingRate4(5);
+    LoRa.enableCrc();
+    LoRa.onReceive(onLoRaReceive);
+    LoRa.receive();
+    loraReady = true;
+    Serial.println("lora: ok @ 868 MHz, SF7/BW125");
+  } else {
+    Serial.println("lora: init FAILED (no SX1276 attached?)");
+  }
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
+    String s;
+    s.reserve(2048);
+    s += "CUG Badge AP\n";
+    s += "wifi: ";
+    s += (WiFi.status() == WL_CONNECTED ? "OK " : "no ");
+    s += WiFi.localIP().toString() + "\n";
+    s += "lora: ";
+    s += (loraReady ? "OK 868MHz SF7/BW125" : "FAIL");
+    s += "\n";
+    s += "rx total: " + String(rxTotal) + "\n";
+    s += "tx total: " + String(txTotal) + "\n";
+    s += "\nrecent rx:\n";
+    for (size_t i = 0; i < rxLogCount; i++) {
+      size_t idx = (rxLogHead + RX_LOG_SIZE - rxLogCount + i) % RX_LOG_SIZE;
+      const RxPacket& p = rxLog[idx];
+      s += "  [" + String(p.at_ms) + "] rssi=" + String(p.rssi)
+         + " snr=" + String(p.snr, 1) + " : ";
+      for (uint8_t j = 0; j < p.len; j++) {
+        char c = p.data[j];
+        s += (c >= 0x20 && (uint8_t)c < 0x7f) ? c : '.';
+      }
+      s += "\n";
+    }
+    s += "\nPOST /tx (body = payload, max 240 bytes) to transmit.\n";
+    req->send(200, "text/plain", s);
+  });
+
+  // POST /downlink — Spring backend's MessagingService forwards MessageRequest here.
+  // Body: {"targetType":"BROADCAST|SECTOR|MAC","targetId":"...","content":"...","category":"INFO|..."}
+  // We transmit a single text LoRa frame: "<targetType>|<targetId>|<category>|<content>"
+  // (badges filter by targetType/targetId themselves).
+  server.on("/downlink", HTTP_POST,
+    [](AsyncWebServerRequest* req) {
+      String body = takeBody(req);
+      Serial.printf("[dl] hit. %u bytes body\n", body.length());
+      if (body.length() == 0) { req->send(400, "text/plain", "empty body\n"); return; }
+
+      String targetType = jsonString(body, "targetType");
+      String targetId   = jsonString(body, "targetId");
+      String content    = jsonString(body, "content");
+      String category   = jsonString(body, "category");
+      if (targetType.length() == 0 || content.length() == 0) {
+        req->send(400, "text/plain", "missing targetType or content\n");
+        return;
+      }
+      if (category.length() == 0) category = "INFO";
+      if (targetId.length()  == 0) targetId  = "-";
+
+      String frame = targetType + "|" + targetId + "|" + category + "|" + content;
+      Serial.printf("[dl] frame (%u bytes): %s\n", frame.length(), frame.c_str());
+      if (frame.length() > MAX_LORA_PAYLOAD) {
+        req->send(413, "text/plain", "frame > 240 bytes after framing\n");
+        return;
+      }
+      if (!loraReady) {
+        req->send(503, "text/plain", "LoRa not initialized (frame parsed OK)\n");
+        return;
+      }
+      LoRa.beginPacket();
+      LoRa.write((const uint8_t*)frame.c_str(), frame.length());
+      LoRa.endPacket();
+      LoRa.receive();
+      txTotal++;
+      Serial.printf("[dl] transmitted\n");
+      req->send(202, "text/plain", "accepted\n");
+    },
+    nullptr,
+    bodyAccumulator);
+
+  // POST /tx — raw passthrough for manual testing (curl etc.). Body becomes the
+  // LoRa payload verbatim, no framing.
+  server.on("/tx", HTTP_POST,
+    [](AsyncWebServerRequest* req) {
+      String body = takeBody(req);
+      if (body.length() == 0 || body.length() > MAX_LORA_PAYLOAD) {
+        req->send(400, "text/plain", "payload must be 1..240 bytes\n");
+        return;
+      }
+      if (!loraReady) {
+        req->send(503, "text/plain", "LoRa not initialized\n");
+        return;
+      }
+      LoRa.beginPacket();
+      LoRa.write((const uint8_t*)body.c_str(), body.length());
+      LoRa.endPacket();
+      LoRa.receive();
+      txTotal++;
+      Serial.printf("[tx] %u bytes: %s\n", body.length(), body.c_str());
+      req->send(200, "text/plain", String("sent ") + body.length() + " bytes\n");
+    },
+    nullptr,
+    bodyAccumulator);
+
   server.begin();
-
-  ws.begin();
-  ws.onEvent(onWebSocketEvent);
-
-  lastFrameAt = millis();
+  Serial.println("http: listening on :80");
 }
 
 void loop() {
-  server.handleClient();
-  ws.loop();
+  RxPacket p;
+  while (xQueueReceive(rxQueue, &p, 0) == pdTRUE) {
+    rxTotal++;
+    rxLog[rxLogHead] = p;
+    rxLogHead = (rxLogHead + 1) % RX_LOG_SIZE;
+    if (rxLogCount < RX_LOG_SIZE) rxLogCount++;
 
-  if (currentPattern.length() > 0) {
-    uint32_t now = millis();
-    if (now - lastFrameAt >= frameMs) {
-      lastFrameAt = now;
-      char c = currentPattern[frameIdx % currentPattern.length()];
-      writeLed(hexCharToValue(c));
-      frameIdx++;
+    Serial.printf("[rx] %u bytes rssi=%d snr=%.1f : ", p.len, p.rssi, p.snr);
+    for (uint8_t i = 0; i < p.len; i++) {
+      char c = p.data[i];
+      Serial.print((c >= 0x20 && (uint8_t)c < 0x7f) ? c : '.');
     }
+    Serial.println();
   }
+  delay(10);
 }
