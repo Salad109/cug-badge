@@ -15,7 +15,7 @@
 #include "logo.h"
 #include "logo_small.h"
 
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
 bool isMenuVisible = false;
 
@@ -29,6 +29,7 @@ void drawQRCode(const char* url, int offset_x, int offset_y, int scale);
 void printTruncated(String text, uint16_t maxWidth);
 
 void initDisplay() {
+  SPI.begin(TFT_CLK, -1, TFT_MOSI, -1);
   tft.begin();
   tft.setRotation(1);
 }

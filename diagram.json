@@ -10,10 +10,10 @@
     [ "esp:GND.1", "tft:GND", "black", [ "v0" ] ],
     [ "esp:3V3.1", "tft:VCC", "red", [ "v0" ] ],
     [ "esp:3V3.2", "tft:LED", "red", [ "v0" ] ],
-    [ "esp:4", "tft:SCK", "orange", [ "v0" ] ],
-    [ "esp:5", "tft:MISO", "purple", [ "v0" ] ],
-    [ "esp:6", "tft:MOSI", "blue", [ "v0" ] ],
-    [ "esp:7", "tft:CS", "green", [ "v0" ] ],
-    [ "esp:2", "tft:D/C", "yellow", [ "v0" ] ]
+    [ "esp:6", "tft:SCK", "orange", [ "v0" ] ],
+    [ "esp:7", "tft:MOSI", "blue", [ "v0" ] ],
+    [ "esp:10", "tft:CS", "green", [ "v0" ] ],
+    [ "esp:21", "tft:D/C", "yellow", [ "v0" ] ],
+    [ "esp:5", "tft:RST", "white", [ "v0" ] ]
   ]
 }
