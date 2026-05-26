@@ -14,6 +14,7 @@ export interface User {
   eMail: string;
   macAddress: string;
   role: 'USER' | 'VIP' | 'SPEAKER' | 'ADMIN' | 'STAFF';
+  groups?: Group[];
 }
 
 export interface Sector {
@@ -27,8 +28,20 @@ export interface SectorRequest {
   gatewayUrl: string;
 }
 
+export interface Group {
+  id: number;
+  name: string;
+  description: string;
+  members?: User[];
+}
+
+export interface GroupRequest {
+  name: string;
+  description: string;
+}
+
 export interface MessageRequest {
-  targetType: 'BROADCAST' | 'SECTOR' | 'MAC';
+  targetType: 'BROADCAST' | 'SECTOR' | 'MAC' | 'GROUP';
   targetId?: string;
   content: string;
   category: 'INFO' | 'WARNING' | 'SPONSOR' | 'ALERT';

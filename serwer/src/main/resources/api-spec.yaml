@@ -194,8 +194,147 @@ paths:
         '202':
           description: Message accepted for delivery
 
+  /groups:
+    get:
+      tags:
+        - Groups
+        - Admin
+      summary: Retrieves a list of groups
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+    post:
+      tags:
+        - Groups
+        - Admin
+      summary: Adds a new group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupRequest'
+      responses:
+        '201':
+          description: Group created
+
+  /groups/{id}:
+    get:
+      tags:
+        - Groups
+        - Admin
+      summary: Retrieves group details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '404':
+          description: Group not found
+    delete:
+      tags:
+        - Groups
+        - Admin
+      summary: Deletes a group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Group deleted
+
+  /groups/{id}/members/{userId}:
+    post:
+      tags:
+        - Groups
+        - Admin
+      summary: Adds a user to a group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: User added to group
+        '404':
+          description: Group or User not found
+    delete:
+      tags:
+        - Groups
+        - Admin
+      summary: Removes a user from a group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: User removed from group
+
 components:
   schemas:
+    Group:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+
+    GroupRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
     Sector:
       type: object
       properties:
@@ -226,10 +365,10 @@ components:
       properties:
         targetType:
           type: string
-          enum: [BROADCAST, SECTOR, MAC]
+          enum: [BROADCAST, SECTOR, MAC, GROUP]
         targetId:
           type: string
-          description: Sector ID or MAC address (ignored for BROADCAST)
+          description: Sector ID, MAC address, or Group ID (ignored for BROADCAST)
         content:
           type: string
           maxLength: 150
@@ -257,6 +396,10 @@ components:
         role:
           type: string
           enum: [USER, VIP, SPEAKER, ADMIN, STAFF]
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
 
     UserRegistrationRequest:
       type: object

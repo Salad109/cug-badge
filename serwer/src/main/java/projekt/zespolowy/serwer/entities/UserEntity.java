@@ -37,6 +37,14 @@ public class UserEntity {
     @Column(name = "access_group")
     private Integer accessGroup;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "user_groups",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "group_id")
+    )
+    private java.util.Set<GroupEntity> groups = new java.util.HashSet<>();
+
     // --- Konstruktory ---
     
     public UserEntity() {
@@ -113,6 +121,14 @@ public class UserEntity {
 
     public void setAccessGroup(Integer accessGroup) {
         this.accessGroup = accessGroup;
+    }
+
+    public java.util.Set<GroupEntity> getGroups() {
+        return groups;
+    }
+
+    public void setGroups(java.util.Set<GroupEntity> groups) {
+        this.groups = groups;
     }
 
     // --- Metody equals i hashCode (Dobre praktyki JPA) ---

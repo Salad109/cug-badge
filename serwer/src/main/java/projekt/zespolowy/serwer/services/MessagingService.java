@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import projekt.zespolowy.serwer.entities.SectorEntity;
 import projekt.zespolowy.serwer.model.MessageRequest;
+import projekt.zespolowy.serwer.repositories.GroupRepository;
 import projekt.zespolowy.serwer.repositories.SectorRepository;
 
 import java.util.List;
@@ -16,10 +17,12 @@ public class MessagingService {
 
     private static final Logger logger = LoggerFactory.getLogger(MessagingService.class);
     private final SectorRepository sectorRepository;
+    private final GroupRepository groupRepository;
     private final RestTemplate restTemplate;
 
-    public MessagingService(SectorRepository sectorRepository) {
+    public MessagingService(SectorRepository sectorRepository, GroupRepository groupRepository) {
         this.sectorRepository = sectorRepository;
+        this.groupRepository = groupRepository;
         this.restTemplate = new RestTemplate();
     }
 
@@ -33,6 +36,9 @@ public class MessagingService {
                 break;
             case MAC:
                 sendToMac(messageRequest);
+                break;
+            case GROUP:
+                sendToGroup(messageRequest);
                 break;
         }
     }
@@ -51,6 +57,24 @@ public class MessagingService {
             sector.ifPresent(entity -> forwardToGateway(entity.getGatewayUrl(), request));
         } catch (NumberFormatException e) {
             logger.error("Invalid sector ID: {}", request.getTargetId());
+        }
+    }
+
+    private void sendToGroup(MessageRequest request) {
+        try {
+            Long groupId = Long.parseLong(request.getTargetId());
+            List<String> macAddresses = groupRepository.findMacAddressesByGroupId(groupId);
+            
+            for (String mac : macAddresses) {
+                MessageRequest macRequest = new MessageRequest();
+                macRequest.setTargetType(MessageRequest.TargetTypeEnum.MAC);
+                macRequest.setTargetId(mac);
+                macRequest.setContent(request.getContent());
+                macRequest.setCategory(request.getCategory());
+                sendToMac(macRequest);
+            }
+        } catch (NumberFormatException e) {
+            logger.error("Invalid group ID: {}", request.getTargetId());
         }
     }
 

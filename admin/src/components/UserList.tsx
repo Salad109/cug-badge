@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Table, Text, ActionIcon, Title, Card, Group, Button } from '@mantine/core';
+import { Table, Text, ActionIcon, Title, Card, Group, Button, Badge } from '@mantine/core';
 import { IconTrash, IconPencil, IconPlus } from '@tabler/icons-react';
 import api from '../api';
 import type { User } from '../api';
@@ -63,6 +63,14 @@ export const UserList = () => {
       <Table.Td>{user.role}</Table.Td>
       <Table.Td>
         <Group gap="xs">
+          {user.groups?.map(g => (
+            <Badge key={g.id} variant="outline" size="xs">{g.name}</Badge>
+          ))}
+          {(!user.groups || user.groups.length === 0) && <Text size="xs" c="dimmed">-</Text>}
+        </Group>
+      </Table.Td>
+      <Table.Td>
+        <Group gap="xs">
           <ActionIcon color="blue" variant="subtle" onClick={() => { setEditingUser(user); setModalOpened(true); }}>
             <IconPencil size={16} />
           </ActionIcon>
@@ -90,6 +98,7 @@ export const UserList = () => {
               <Table.Th>Nickname</Table.Th>
               <Table.Th>MAC Address</Table.Th>
               <Table.Th>Role</Table.Th>
+              <Table.Th>Groups</Table.Th>
               <Table.Th>Actions</Table.Th>
             </Table.Tr>
           </Table.Thead>

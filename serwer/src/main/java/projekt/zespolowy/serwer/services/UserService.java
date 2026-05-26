@@ -116,6 +116,20 @@ public class UserService {
             dto.setRole(User.RoleEnum.valueOf(entity.getRole().name()));
         }
 
+        if (entity.getGroups() != null) {
+            dto.setGroups(entity.getGroups().stream()
+                    .map(this::mapGroupToDtoSimple)
+                    .collect(Collectors.toList()));
+        }
+
+        return dto;
+    }
+
+    private projekt.zespolowy.serwer.model.Group mapGroupToDtoSimple(projekt.zespolowy.serwer.entities.GroupEntity entity) {
+        projekt.zespolowy.serwer.model.Group dto = new projekt.zespolowy.serwer.model.Group();
+        dto.setId(entity.getId());
+        dto.setName(entity.getName());
+        dto.setDescription(entity.getDescription());
         return dto;
     }
 }

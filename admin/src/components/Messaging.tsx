@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button, Textarea, Select, Title, Card, Stack, TextInput, SegmentedControl, Text } from '@mantine/core';
 import { IconSend } from '@tabler/icons-react';
 import api from '../api';
-import type { Sector } from '../api';
+import type { Sector, Group } from '../api';
 import { notifications } from '@mantine/notifications';
 
 export const Messaging = () => {
@@ -11,15 +11,20 @@ export const Messaging = () => {
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<string>('INFO');
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
 
   useEffect(() => {
-    const fetchSectors = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get('/sectors');
-        setSectors(response.data);
+        const [sectorsRes, groupsRes] = await Promise.all([
+          api.get('/sectors'),
+          api.get('/groups')
+        ]);
+        setSectors(sectorsRes.data);
+        setGroups(groupsRes.data);
       } catch (e) {}
     };
-    fetchSectors();
+    fetchData();
   }, []);
 
   const handleSend = async () => {
@@ -49,6 +54,7 @@ export const Messaging = () => {
           data={[
             { label: 'Broadcast', value: 'BROADCAST' },
             { label: 'Sector', value: 'SECTOR' },
+            { label: 'Group', value: 'GROUP' },
             { label: 'Specific MAC', value: 'MAC' },
           ]}
         />
@@ -58,6 +64,16 @@ export const Messaging = () => {
             label="Select Sector"
             placeholder="Choose a sector"
             data={sectors.map(s => ({ value: s.id.toString(), label: s.name }))}
+            value={targetId}
+            onChange={(val) => setTargetId(val || '')}
+          />
+        )}
+
+        {targetType === 'GROUP' && (
+          <Select
+            label="Select Group"
+            placeholder="Choose a group"
+            data={groups.map(g => ({ value: g.id.toString(), label: g.name }))}
             value={targetId}
             onChange={(val) => setTargetId(val || '')}
           />
