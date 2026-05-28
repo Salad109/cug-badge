@@ -308,6 +308,192 @@ paths:
         '204':
           description: User removed from group
 
+  /agenda/items:
+    get:
+      tags:
+        - Agenda
+      summary: Retrieves all agenda items
+      responses:
+        '200':
+          description: List of agenda items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgendaItem'
+    post:
+      tags:
+        - Agenda
+        - Admin
+      summary: Creates a new agenda item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendaItemRequest'
+      responses:
+        '201':
+          description: Agenda item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaItem'
+
+  /agenda/items/{id}:
+    get:
+      tags:
+        - Agenda
+      summary: Retrieves agenda item details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Agenda item details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaItem'
+        '404':
+          description: Agenda item not found
+    put:
+      tags:
+        - Agenda
+        - Admin
+      summary: Updates an existing agenda item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendaItemRequest'
+      responses:
+        '200':
+          description: Agenda item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaItem'
+        '404':
+          description: Agenda item not found
+    delete:
+      tags:
+        - Agenda
+        - Admin
+      summary: Deletes an agenda item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Agenda item deleted
+
+  /users/{id}/schedule:
+    get:
+      tags:
+        - Users
+      summary: Retrieves user's personal schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of scheduled items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgendaItem'
+        '404':
+          description: User not found
+
+  /users/{id}/schedule/{itemId}:
+    post:
+      tags:
+        - Users
+      summary: Adds an item to user's schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Item added to schedule
+        '404':
+          description: User or Agenda item not found
+    delete:
+      tags:
+        - Users
+      summary: Removes an item from user's schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Item removed from schedule
+        '404':
+          description: User or Agenda item not found
+
+  /users/{id}/schedule/push:
+    post:
+      tags:
+        - Users
+        - Admin
+      summary: Manually pushes the current schedule to the user's badge via LoRa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '202':
+          description: Sync message queued for delivery
+        '404':
+          description: User not found
+
 components:
   schemas:
     Group:
@@ -374,7 +560,7 @@ components:
           maxLength: 150
         category:
           type: string
-          enum: [INFO, WARNING, SPONSOR, ALERT]
+          enum: [INFO, WARNING, SPONSOR, ALERT, AGENDA_UPDATE, AGENDA_SYNC]
           default: INFO
 
     User:
@@ -400,6 +586,70 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Group'
+        scheduledItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgendaItem'
+
+    AgendaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        track:
+          type: string
+        speaker:
+          type: string
+          description: Name of the speaker/host
+        speakerId:
+          type: integer
+          format: int64
+          description: Optional ID of the user who is the speaker
+        isDefault:
+          type: boolean
+          description: If true, this item is automatically added to new users schedules
+
+    AgendaItemRequest:
+      type: object
+      required:
+        - title
+        - startTime
+        - endTime
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        track:
+          type: string
+        speaker:
+          type: string
+        speakerId:
+          type: integer
+          format: int64
+        isDefault:
+          type: boolean
 
     UserRegistrationRequest:
       type: object

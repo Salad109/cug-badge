@@ -63,16 +63,13 @@ public class MessagingService {
     private void sendToGroup(MessageRequest request) {
         try {
             Long groupId = Long.parseLong(request.getTargetId());
-            List<String> macAddresses = groupRepository.findMacAddressesByGroupId(groupId);
-            
-            for (String mac : macAddresses) {
-                MessageRequest macRequest = new MessageRequest();
-                macRequest.setTargetType(MessageRequest.TargetTypeEnum.MAC);
-                macRequest.setTargetId(mac);
-                macRequest.setContent(request.getContent());
-                macRequest.setCategory(request.getCategory());
-                sendToMac(macRequest);
-            }
+            MessageRequest macRequest = new MessageRequest();
+            macRequest.setTargetType(MessageRequest.TargetTypeEnum.GROUP);
+            macRequest.setTargetId(groupId.toString(0));
+            macRequest.setContent(request.getContent());
+            macRequest.setCategory(request.getCategory());
+
+            sendToMac(macRequest);
         } catch (NumberFormatException e) {
             logger.error("Invalid group ID: {}", request.getTargetId());
         }

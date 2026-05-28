@@ -1,9 +1,10 @@
 import { AppShell, Tabs, Container, Title, Group, Button } from '@mantine/core';
-import { IconUsers, IconBroadcast, IconMapPin, IconAlertTriangle, IconUsersGroup } from '@tabler/icons-react';
+import { IconUsers, IconBroadcast, IconMapPin, IconAlertTriangle, IconUsersGroup, IconCalendar } from '@tabler/icons-react';
 import { UserList } from './components/UserList';
 import { SectorManager } from './components/SectorManager';
 import { Messaging } from './components/Messaging';
 import { GroupManager } from './components/GroupManager';
+import { AgendaManager } from './components/AgendaManager';
 import api from './api';
 import { notifications } from '@mantine/notifications';
 
@@ -50,6 +51,9 @@ function App() {
               <Tabs.Tab value="groups" leftSection={<IconUsersGroup size={16} />}>
                 Groups
               </Tabs.Tab>
+              <Tabs.Tab value="agenda" leftSection={<IconCalendar size={16} />}>
+                Agenda
+              </Tabs.Tab>
               <Tabs.Tab value="sectors" leftSection={<IconMapPin size={16} />}>
                 Sectors (Gateways)
               </Tabs.Tab>
@@ -64,6 +68,10 @@ function App() {
 
             <Tabs.Panel value="groups">
               <GroupManager />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="agenda">
+              <AgendaManager />
             </Tabs.Panel>
 
             <Tabs.Panel value="sectors">

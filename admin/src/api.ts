@@ -44,5 +44,30 @@ export interface MessageRequest {
   targetType: 'BROADCAST' | 'SECTOR' | 'MAC' | 'GROUP';
   targetId?: string;
   content: string;
-  category: 'INFO' | 'WARNING' | 'SPONSOR' | 'ALERT';
+  category: 'INFO' | 'WARNING' | 'SPONSOR' | 'ALERT' | 'AGENDA_UPDATE';
+}
+
+export interface AgendaItem {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  startTime: string;
+  endTime: string;
+  track: string;
+  speaker?: string;
+  speakerId?: number;
+  isDefault: boolean;
+}
+
+export interface AgendaItemRequest {
+  title: string;
+  description: string;
+  location: string;
+  startTime: string;
+  endTime: string;
+  track: string;
+  speaker?: string;
+  speakerId?: number;
+  isDefault: boolean;
 }

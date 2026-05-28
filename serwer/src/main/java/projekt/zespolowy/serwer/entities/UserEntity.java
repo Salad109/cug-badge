@@ -45,6 +45,14 @@ public class UserEntity {
     )
     private java.util.Set<GroupEntity> groups = new java.util.HashSet<>();
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "user_schedule",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "agenda_item_id")
+    )
+    private java.util.Set<AgendaItemEntity> scheduledItems = new java.util.HashSet<>();
+
     // --- Konstruktory ---
     
     public UserEntity() {
@@ -129,6 +137,14 @@ public class UserEntity {
 
     public void setGroups(java.util.Set<GroupEntity> groups) {
         this.groups = groups;
+    }
+
+    public java.util.Set<AgendaItemEntity> getScheduledItems() {
+        return scheduledItems;
+    }
+
+    public void setScheduledItems(java.util.Set<AgendaItemEntity> scheduledItems) {
+        this.scheduledItems = scheduledItems;
     }
 
     // --- Metody equals i hashCode (Dobre praktyki JPA) ---

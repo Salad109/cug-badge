@@ -14,9 +14,11 @@ import projekt.zespolowy.serwer.repositories.UserRepository;
 @Service
 public class UserService {
     private final UserRepository userRepository;
+    private final AgendaService agendaService;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, AgendaService agendaService) {
         this.userRepository = userRepository;
+        this.agendaService = agendaService;
     }
 
     public List<User> getAll() {
@@ -43,7 +45,8 @@ public class UserService {
         newUser.setRole(UserEntity.RoleEnum.USER);
         newUser.setAccessGroup(0);
 
-        userRepository.save(newUser);
+        UserEntity savedUser = userRepository.save(newUser);
+        agendaService.assignDefaultSchedule(savedUser);
         return 201;
     }
 
@@ -77,7 +80,8 @@ public class UserService {
         }
         UserEntity entity = new UserEntity();
         updateEntityFromDto(entity, user);
-        userRepository.save(entity);
+        UserEntity savedUser = userRepository.save(entity);
+        agendaService.assignDefaultSchedule(savedUser);
         return 201;
     }
 

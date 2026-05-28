@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Table, Text, ActionIcon, Title, Card, Group, Button, Badge } from '@mantine/core';
-import { IconTrash, IconPencil, IconPlus } from '@tabler/icons-react';
+import { IconTrash, IconPencil, IconPlus, IconCalendar } from '@tabler/icons-react';
 import api from '../api';
 import type { User } from '../api';
 import { notifications } from '@mantine/notifications';
 import { UserModal } from './UserModal';
+import { UserScheduleModal } from './UserScheduleModal';
 
 export const UserList = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpened, setModalOpened] = useState(false);
+  const [scheduleOpened, setScheduleOpened] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -74,6 +77,9 @@ export const UserList = () => {
           <ActionIcon color="blue" variant="subtle" onClick={() => { setEditingUser(user); setModalOpened(true); }}>
             <IconPencil size={16} />
           </ActionIcon>
+          <ActionIcon color="green" variant="subtle" onClick={() => { setSelectedUser(user); setScheduleOpened(true); }} title="Manage Schedule">
+            <IconCalendar size={16} />
+          </ActionIcon>
           <ActionIcon color="red" variant="subtle" onClick={() => handleUnlink(user.macAddress)} title="Unlink & Delete" disabled={!user.macAddress}>
             <IconTrash size={16} />
           </ActionIcon>
@@ -112,6 +118,12 @@ export const UserList = () => {
         onClose={() => setModalOpened(false)} 
         onSubmit={handleSaveUser}
         initialData={editingUser}
+      />
+
+      <UserScheduleModal
+        opened={scheduleOpened}
+        onClose={() => setScheduleOpened(false)}
+        user={selectedUser}
       />
     </>
   );
