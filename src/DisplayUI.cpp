@@ -29,7 +29,7 @@ void drawQRCode(const char* url, int offset_x, int offset_y, int scale);
 void printTruncated(String text, uint16_t maxWidth);
 
 void initDisplay() {
-  SPI.begin(TFT_CLK, -1, TFT_MOSI, -1);
+  SPI.begin();
   tft.begin();
   tft.setRotation(1);
 }
@@ -298,4 +298,32 @@ void printTruncated(String text, uint16_t maxWidth) {
       }
     }
   }
+}
+
+void drawRegistrationScreen(String macAddress) {
+  tft.fillScreen(COMARCH_NAVY);
+  drawTopBar();
+  drawBottomBar();
+
+  tft.setFont(&Roboto_Condensed_Regular16pt7b);
+  tft.setTextColor(ILI9341_WHITE);
+  tft.setCursor(15, 100);
+  tft.print("Badge Setup");
+
+  tft.setFont(&Roboto_Condensed_Regular8pt7b);
+  tft.setTextColor(COMARCH_CYAN);
+  tft.setCursor(15, 135);
+  tft.print("Scan QR code to activate");
+  
+  tft.setTextColor(ILI9341_LIGHTGREY);
+  tft.setCursor(15, 155);
+  tft.print("Device MAC:");
+  tft.setTextColor(ILI9341_WHITE);
+  tft.setCursor(15, 175);
+  tft.print(macAddress);
+
+  String url = "http://localhost:6769/?mac=" + macAddress;
+  
+  // Draw QR Code on the right side
+  drawQRCode(url.c_str(), 190, 75, 3);
 }

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "DisplayUI.h"
 #include "Config.h" 
+#include <WiFi.h>
 
 extern bool isMenuVisible;
 
@@ -12,9 +13,15 @@ void setup() {
   drawSplashScreen();
   delay(2000);
 
+  String macAddress = WiFi.macAddress();
+  
+  drawRegistrationScreen(macAddress);
+  delay(5000);
+
   isMenuVisible = false;
   drawMainScreen("John Doe", "Chief Engineer", "Comarch SA", "john.doe@comarch.com", "+48 123 456 789", "https://www.linkedin.com/company/comarch/", 0);
   delay(2000);
+
 }
 
 void loop() {

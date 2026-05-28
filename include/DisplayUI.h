@@ -11,5 +11,6 @@ void drawTopBar();
 void drawBottomBar();
 void drawProfile(String fullName, String role, String company, String email, String phone, String qrUrl);
 void drawMenu(int selectedMenu);
+void drawRegistrationScreen(String macAddress);
 
 #endif
