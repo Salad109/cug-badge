@@ -605,10 +605,8 @@ components:
           type: string
         startTime:
           type: string
-          format: date-time
         endTime:
           type: string
-          format: date-time
         track:
           type: string
         speaker:
@@ -637,10 +635,8 @@ components:
           type: string
         startTime:
           type: string
-          format: date-time
         endTime:
           type: string
-          format: date-time
         track:
           type: string
         speaker:

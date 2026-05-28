@@ -133,8 +133,8 @@ public class AgendaService {
              return entity.getLocation() != request.getLocation();
         }
         return !entity.getLocation().equals(request.getLocation()) ||
-               !entity.getStartTime().equals(request.getStartTime()) ||
-               !entity.getEndTime().equals(request.getEndTime());
+               !entity.getStartTime().toString().equals(request.getStartTime()) ||
+               !entity.getEndTime().toString().equals(request.getEndTime());
     }
 
     private void notifyAffectedUsers(AgendaItemEntity item) {
@@ -155,8 +155,8 @@ public class AgendaService {
         model.setTitle(entity.getTitle());
         model.setDescription(entity.getDescription());
         model.setLocation(entity.getLocation());
-        model.setStartTime(entity.getStartTime());
-        model.setEndTime(entity.getEndTime());
+        model.setStartTime(entity.getStartTime().toString());
+        model.setEndTime(entity.getEndTime().toString());
         model.setTrack(entity.getTrack());
         model.setSpeaker(entity.getSpeaker());
         model.setSpeakerId(entity.getSpeakerId());
@@ -168,8 +168,8 @@ public class AgendaService {
         entity.setTitle(request.getTitle());
         entity.setDescription(request.getDescription());
         entity.setLocation(request.getLocation());
-        entity.setStartTime(request.getStartTime());
-        entity.setEndTime(request.getEndTime());
+        entity.setStartTime(request.getStartTime().toString());
+        entity.setEndTime(request.getEndTime().toString());
         entity.setTrack(request.getTrack());
         entity.setSpeaker(request.getSpeaker());
         entity.setSpeakerId(request.getSpeakerId());

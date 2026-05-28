@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @Entity
 @Table(name = "agenda_items")
 public class AgendaItemEntity {
@@ -23,9 +25,11 @@ public class AgendaItemEntity {
     private String location;
 
     @Column(name = "start_time", nullable = false)
+@   JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm")
     private OffsetDateTime startTime;
 
     @Column(name = "end_time", nullable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm")
     private OffsetDateTime endTime;
 
     private String track;
@@ -87,16 +91,26 @@ public class AgendaItemEntity {
         return startTime;
     }
 
-    public void setStartTime(OffsetDateTime startTime) {
-        this.startTime = startTime;
+    public void setStartTime(String startTimeStr) {
+        if (startTimeStr != null && !startTimeStr.contains("+") && !startTimeStr.endsWith("Z")) {
+            // Doklejamy 'Z' (UTC) lub '+02:00' (Polska latem)
+            this.startTime = OffsetDateTime.parse(startTimeStr + ":00+00:00");
+        } else {
+            this.startTime = OffsetDateTime.parse(startTimeStr);
+        }
     }
 
     public OffsetDateTime getEndTime() {
         return endTime;
     }
 
-    public void setEndTime(OffsetDateTime endTime) {
-        this.endTime = endTime;
+    public void setEndTime(String endTimeStr) {
+        if (endTimeStr != null && !endTimeStr.contains("+") && !endTimeStr.endsWith("Z")) {
+            // Doklejamy 'Z' (UTC) lub '+02:00' (Polska latem)
+            this.endTime = OffsetDateTime.parse(endTimeStr + ":00+00:00");
+        } else {
+            this.endTime = OffsetDateTime.parse(endTimeStr);
+        }
     }
 
     public String getTrack() {
