@@ -17,10 +17,26 @@ static const ScheduleEvent kDemoSchedule[] = {
 };
 static const int kDemoScheduleCount = sizeof(kDemoSchedule) / sizeof(kDemoSchedule[0]);
 
+static const BadgeMessage kDemoMessages[] = {
+    {1, "Organizer", "09:15", "Welcome to CUG Badge demo. Please proceed to the main hall.",
+     MessageCategory::INFO},
+    {2, "Sponsor", "10:42", "Visit our booth for networking and small gifts while supplies last.",
+     MessageCategory::SPONSOR},
+    {3, "System", "11:05", "Your schedule was updated. Open Schedule to see new workshop times.",
+     MessageCategory::AGENDA_UPDATE},
+    {4, "Staff", "12:20", "Lunch vouchers are available at the info desk until 13:30 today.",
+     MessageCategory::WARNING},
+};
+static const int kDemoMessageCount = sizeof(kDemoMessages) / sizeof(kDemoMessages[0]);
+
+static int gSelectedMessage = 0;
+static bool gMessageDetailOpen = false;
+
 static void drawDemoMain(int selectedMenu) {
   drawMainScreen("John Doe", "Chief Engineer", "Comarch SA", "john.doe@comarch.com",
                  "+48 123 456 789", "https://www.linkedin.com/company/comarch/", selectedMenu,
-                 kDemoSchedule, kDemoScheduleCount);
+                 kDemoSchedule, kDemoScheduleCount, 0, kDemoMessages, kDemoMessageCount,
+                 gSelectedMessage, 0, gMessageDetailOpen);
 }
 
 /**
@@ -39,48 +55,66 @@ void setup() {
   delay(5000);
 
   isMenuVisible = false;
-  drawDemoMain(0);
+  gSelectedMessage = 0;
+  gMessageDetailOpen = false;
+  drawDemoMain(MENU_PROFILE);
   delay(2000);
 }
 
 /**
- * Automated menu demo for display testing (no physical buttons yet).
- * Cycles: open menu → scroll down → confirm Schedule → reopen → scroll up → confirm Profile.
+ * Demo: menu opens only to pick a tab (SELECT closes it). Content uses the full screen.
  */
 void loop() {
-  int selectedMenu = 0;
-  const int menuCount = 6;
+  int selectedMenu = MENU_PROFILE;
 
-  // Open side menu on Profile.
+  // MENU: open overlay, scroll to Messages, SELECT closes menu.
   isMenuVisible = true;
+  drawDemoMain(selectedMenu);
+  delay(800);
+
+  selectedMenu = MENU_MESSAGES;
+  drawDemoMain(selectedMenu);
+  delay(800);
+
+  isMenuVisible = false;
+  gSelectedMessage = 0;
+  gMessageDetailOpen = false;
   drawDemoMain(selectedMenu);
   delay(1000);
 
-  // Scroll selection down through all menu items (ends on Schedule).
-  for (int i = 1; i < menuCount; i++) {
-    selectedMenu = i;
+  // Browse inbox (full screen, menu hidden).
+  for (int m = 1; m < kDemoMessageCount; m++) {
+    gSelectedMessage = m;
     drawDemoMain(selectedMenu);
     delay(750);
   }
 
-  // Close menu and show Schedule view.
+  gMessageDetailOpen = true;
+  drawDemoMain(selectedMenu);
+  delay(3500);
+
+  gMessageDetailOpen = false;
+  drawDemoMain(selectedMenu);
+  delay(2000);
+
+  // MENU: pick Schedule, SELECT → full-screen schedule.
+  isMenuVisible = true;
+  selectedMenu = MENU_SCHEDULE;
+  drawDemoMain(selectedMenu);
+  delay(800);
+
   isMenuVisible = false;
   drawDemoMain(selectedMenu);
   delay(3000);
 
-  // Open menu again while still on Schedule.
+  // MENU: scroll up to Profile, SELECT → full-screen profile.
   isMenuVisible = true;
-  drawDemoMain(selectedMenu);
-  delay(1000);
-
-  // Scroll back up to Profile.
-  for (int i = menuCount - 2; i >= 0; i--) {
+  for (int i = MENU_SCHEDULE - 1; i >= MENU_PROFILE; i--) {
     selectedMenu = i;
     drawDemoMain(selectedMenu);
     delay(750);
   }
 
-  // Close menu and return to Profile view.
   isMenuVisible = false;
   drawDemoMain(selectedMenu);
   delay(3000);
