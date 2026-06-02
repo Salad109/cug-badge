@@ -109,7 +109,15 @@ void setup() {
     Serial.printf("register this AP as a sector with gatewayUrl=http://%s/downlink\n",
                   WiFi.localIP().toString().c_str());
   } else {
-    Serial.println("wifi: not connected (will keep trying in background)");
+    const char* reason;
+    switch (WiFi.status()) {
+      case WL_NO_SSID_AVAIL:  reason = "SSID not found";         break;
+      case WL_CONNECT_FAILED: reason = "wrong password / auth";  break;
+      case WL_CONNECTION_LOST:reason = "connection lost";        break;
+      case WL_DISCONNECTED:   reason = "disconnected (timeout)"; break;
+      default:                reason = "unknown";                break;
+    }
+    Serial.printf("wifi: not connected — %s (status %d)\n", reason, WiFi.status());
   }
 
   SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI);
