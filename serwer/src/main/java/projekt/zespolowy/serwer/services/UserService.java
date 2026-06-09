@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import projekt.zespolowy.serwer.entities.UserEntity;
 import projekt.zespolowy.serwer.model.User;
@@ -15,10 +16,14 @@ import projekt.zespolowy.serwer.repositories.UserRepository;
 public class UserService {
     private final UserRepository userRepository;
     private final AgendaService agendaService;
+    private final MessagingService messagingService;
+    private final ObjectMapper objectMapper;
 
-    public UserService(UserRepository userRepository, AgendaService agendaService) {
+    public UserService(UserRepository userRepository, AgendaService agendaService, MessagingService messagingService, ObjectMapper objectMapper) {
         this.userRepository = userRepository;
         this.agendaService = agendaService;
+        this.messagingService = messagingService;
+        this.objectMapper = objectMapper;
     }
 
     public List<User> getAll() {
@@ -38,6 +43,8 @@ public class UserService {
         newUser.setName(user.getName());
         newUser.setSurname(user.getSurname());
         newUser.setNickname(user.getNickname());
+        newUser.setCompany(user.getCompany());
+        newUser.setPosition(user.getPosition());
         newUser.seteMail(user.geteMail());
         newUser.setMacAddress(macAddress);
 
@@ -47,6 +54,9 @@ public class UserService {
 
         UserEntity savedUser = userRepository.save(newUser);
         agendaService.assignDefaultSchedule(savedUser);
+        
+        sendWelcomeMessage(savedUser);
+        
         return 201;
     }
 
@@ -96,10 +106,39 @@ public class UserService {
         return false;
     }
 
+    private void sendWelcomeMessage(UserEntity user) {
+        projekt.zespolowy.serwer.model.MessageRequest message = new projekt.zespolowy.serwer.model.MessageRequest();
+        message.setTargetType(projekt.zespolowy.serwer.model.MessageRequest.TargetTypeEnum.MAC);
+        message.setTargetId(user.getMacAddress());
+        message.setCategory(projekt.zespolowy.serwer.model.MessageRequest.CategoryEnum.INFO);
+
+        try {
+            UserRegistrationRequest registrationData = new UserRegistrationRequest();
+            registrationData.setName(user.getName());
+            registrationData.setSurname(user.getSurname());
+            registrationData.setNickname(user.getNickname());
+            registrationData.setCompany(user.getCompany());
+            registrationData.setPosition(user.getPosition());
+            registrationData.seteMail(user.geteMail());
+
+            String jsonContent = objectMapper.writeValueAsString(registrationData);
+            message.setContent(jsonContent);
+            messagingService.sendMessage(message);
+        } catch (Exception e) {
+            System.err.println("Error serializing registration message: " + e.getMessage());
+        }
+    }
+
+    private String valOrEmpty(String val) {
+        return (val != null) ? val : "";
+    }
+
     private void updateEntityFromDto(UserEntity entity, User dto) {
         entity.setName(dto.getName());
         entity.setSurname(dto.getSurname());
         entity.setNickname(dto.getNickname());
+        entity.setCompany(dto.getCompany());
+        entity.setPosition(dto.getPosition());
         entity.seteMail(dto.geteMail());
         entity.setMacAddress(dto.getMacAddress());
         if (dto.getRole() != null) {
@@ -113,6 +152,8 @@ public class UserService {
         dto.setName(entity.getName());
         dto.setSurname(entity.getSurname());
         dto.setNickname(entity.getNickname());
+        dto.setCompany(entity.getCompany());
+        dto.setPosition(entity.getPosition());
         dto.seteMail(entity.geteMail());
         dto.setMacAddress(entity.getMacAddress());
 

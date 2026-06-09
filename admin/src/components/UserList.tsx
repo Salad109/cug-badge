@@ -62,6 +62,10 @@ export const UserList = () => {
     <Table.Tr key={user.id}>
       <Table.Td>{user.name} {user.surname}</Table.Td>
       <Table.Td>{user.nickname}</Table.Td>
+      <Table.Td>
+        <Text size="sm">{user.company || '-'}</Text>
+        <Text size="xs" c="dimmed">{user.position || '-'}</Text>
+      </Table.Td>
       <Table.Td>{user.macAddress || <Text c="dimmed" fs="italic" size="sm">Not assigned</Text>}</Table.Td>
       <Table.Td>{user.role}</Table.Td>
       <Table.Td>
@@ -102,6 +106,7 @@ export const UserList = () => {
             <Table.Tr>
               <Table.Th>Name</Table.Th>
               <Table.Th>Nickname</Table.Th>
+              <Table.Th>Company / Role</Table.Th>
               <Table.Th>MAC Address</Table.Th>
               <Table.Th>Role</Table.Th>
               <Table.Th>Groups</Table.Th>

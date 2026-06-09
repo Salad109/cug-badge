@@ -20,6 +20,12 @@ public class UserEntity {
     @Column(nullable = false)
     private String nickname;
 
+    @Column(name = "company")
+    private String company;
+
+    @Column(name = "position")
+    private String position;
+
     @Column(name = "email")
     private String eMail;
 
@@ -97,6 +103,22 @@ public class UserEntity {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public String getCompany() {
+        return company;
+    }
+
+    public void setCompany(String company) {
+        this.company = company;
+    }
+
+    public String getPosition() {
+        return position;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
     }
 
     public String geteMail() {

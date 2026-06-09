@@ -575,6 +575,10 @@ components:
           type: string
         nickname:
           type: string
+        company:
+          type: string
+        position:
+          type: string
         eMail:
           type: string
         macAddress:
@@ -658,6 +662,10 @@ components:
         surname:
           type: string
         nickname:
+          type: string
+        company:
+          type: string
+        position:
           type: string
         eMail:
           type: string

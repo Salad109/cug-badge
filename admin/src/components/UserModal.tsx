@@ -14,6 +14,8 @@ export const UserModal = ({ opened, onClose, onSubmit, initialData }: UserModalP
     name: '',
     surname: '',
     nickname: '',
+    company: '',
+    position: '',
     eMail: '',
     macAddress: '',
     role: 'USER',
@@ -27,6 +29,8 @@ export const UserModal = ({ opened, onClose, onSubmit, initialData }: UserModalP
         name: '',
         surname: '',
         nickname: '',
+        company: '',
+        position: '',
         eMail: '',
         macAddress: '',
         role: 'USER',
@@ -53,6 +57,16 @@ export const UserModal = ({ opened, onClose, onSubmit, initialData }: UserModalP
           required
           value={formData.nickname}
           onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+        />
+        <TextInput
+          label="Company"
+          value={formData.company}
+          onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+        />
+        <TextInput
+          label="Position/Role"
+          value={formData.position}
+          onChange={(e) => setFormData({ ...formData, position: e.target.value })}
         />
         <TextInput
           label="Email"

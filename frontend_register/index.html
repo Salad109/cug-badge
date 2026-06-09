@@ -122,6 +122,14 @@
             <input type="text" id="nickname" name="nickname" required placeholder="Will be displayed on screen">
         </div>
         <div class="form-group">
+            <label for="company">Company</label>
+            <input type="text" id="company" name="company" placeholder="Optional">
+        </div>
+        <div class="form-group">
+            <label for="position">Position / Role</label>
+            <input type="text" id="position" name="position" placeholder="Optional">
+        </div>
+        <div class="form-group">
             <label for="eMail">Email Address</label>
             <input type="email" id="eMail" name="eMail" placeholder="Optional">
         </div>
@@ -219,6 +227,8 @@
         };
 
         if (surname) payload.surname = surname;
+        if (company) payload.company = company;
+        if (position) payload.position = position;
         if (eMail) payload.eMail = eMail;
 
         try {
@@ -250,6 +260,12 @@
             if (submitBtn.style.display !== 'none') {
                 submitBtn.textContent = "Register";
             }
+        }
+    });
+</script>
+
+</body>
+</html>   }
         }
     });
 </script>

@@ -11,6 +11,8 @@ export interface User {
   name: string;
   surname: string;
   nickname: string;
+  company: string;
+  position: string;
   eMail: string;
   macAddress: string;
   role: 'USER' | 'VIP' | 'SPEAKER' | 'ADMIN' | 'STAFF';
